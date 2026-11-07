@@ -41,7 +41,6 @@ import android.media.MediaCodecInfo;
 import android.media.MediaFormat;
 import android.media.MediaRecorder;
 import android.os.Build;
-import android.os.Environment;
 import android.service.textservice.SpellCheckerService.Session;
 import android.util.Log;
 
@@ -197,7 +196,11 @@ public class AACStream extends AudioStream {
 
 		((AACLATMPacketizer)mPacketizer).setSamplingRate(mQuality.samplingRate);
 
-		mAudioRecord = new AudioRecord(MediaRecorder.AudioSource.MIC, mQuality.samplingRate, AudioFormat.CHANNEL_IN_MONO, AudioFormat.ENCODING_PCM_16BIT, bufferSize);
+		try {
+			mAudioRecord = new AudioRecord(MediaRecorder.AudioSource.MIC, mQuality.samplingRate, AudioFormat.CHANNEL_IN_MONO, AudioFormat.ENCODING_PCM_16BIT, bufferSize);
+		} catch (SecurityException e) {
+			throw new IOException("Microphone permission is unavailable. Reopen Spydroid and grant audio access.", e);
+		}
 		mMediaCodec = MediaCodec.createEncoderByType("audio/mp4a-latm");
 		MediaFormat format = new MediaFormat();
 		format.setString(MediaFormat.KEY_MIME, "audio/mp4a-latm");
@@ -302,11 +305,7 @@ public class AACStream extends AudioStream {
 			}
 		}
 
-		final String TESTFILE = Environment.getExternalStorageDirectory().getPath()+"/spydroid-test.adts";
-
-		if (!Environment.getExternalStorageState().equals(Environment.MEDIA_MOUNTED)) {
-			throw new IllegalStateException("No external storage or external storage not ready !");
-		}
+		final String TESTFILE = new File(SessionBuilder.getInstance().getContext().getCacheDir(), "spydroid-test.adts").getAbsolutePath();
 
 		// The structure of an ADTS packet is described here: http://wiki.multimedia.cx/index.php?title=ADTS
 

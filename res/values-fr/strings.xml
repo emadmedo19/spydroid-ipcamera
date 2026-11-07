@@ -56,4 +56,5 @@
     <string name="page1">Aperçu</string>
     <string name="page2">À propos</string>
 
+    <string name="media_permissions_required">Les autorisations de la caméra et du microphone sont nécessaires pour diffuser. Autorisez-les dans les paramètres et rouvrez Spydroid.</string>
 </resources>

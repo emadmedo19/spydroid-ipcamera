@@ -31,6 +31,7 @@ import net.majorkernelpanic.streaming.rtsp.RtspServer;
 import android.app.AlertDialog;
 import android.app.Notification;
 import android.app.NotificationManager;
+import android.app.NotificationChannel;
 import android.app.PendingIntent;
 import android.content.ComponentName;
 import android.content.Context;
@@ -38,6 +39,9 @@ import android.content.DialogInterface;
 import android.content.Intent;
 import android.content.ServiceConnection;
 import android.content.pm.ActivityInfo;
+import android.content.pm.PackageManager;
+import android.Manifest;
+import android.os.Build;
 import android.os.Bundle;
 import android.os.IBinder;
 import android.os.PowerManager;
@@ -77,9 +81,24 @@ public class SpydroidActivity extends FragmentActivity {
 	private SpydroidApplication mApplication;
 	private CustomHttpServer mHttpServer;
 	private RtspServer mRtspServer;
+	private static final int MEDIA_PERMISSIONS = 100;
+	private static final String NOTIFICATION_CHANNEL = "streaming";
+	private boolean mServicesBound;
 
 	public void onCreate(Bundle savedInstanceState) {
 		super.onCreate(savedInstanceState);
+
+		if (Build.VERSION.SDK_INT >= 23) {
+			java.util.ArrayList<String> missing = new java.util.ArrayList<String>();
+			String[] permissions = {Manifest.permission.CAMERA, Manifest.permission.RECORD_AUDIO};
+			for (String permission : permissions) {
+				if (checkSelfPermission(permission) != PackageManager.PERMISSION_GRANTED) missing.add(permission);
+			}
+			if (!missing.isEmpty()) {
+				requestPermissions(missing.toArray(new String[missing.size()]), MEDIA_PERMISSIONS);
+				return;
+			}
+		}
 
 		mApplication = (SpydroidApplication) getApplication();
 
@@ -115,7 +134,7 @@ public class SpydroidActivity extends FragmentActivity {
 
 		// Prevents the phone from going to sleep mode
 		PowerManager pm = (PowerManager) getSystemService(Context.POWER_SERVICE);
-		mWakeLock = pm.newWakeLock(PowerManager.FULL_WAKE_LOCK, "net.majorkernelpanic.spydroid.wakelock");
+		mWakeLock = pm.newWakeLock(PowerManager.FULL_WAKE_LOCK, "spydroid:wakelock");
 
 		// Starts the service of the HTTP server
 		this.startService(new Intent(this,CustomHttpServer.class));
@@ -127,6 +146,7 @@ public class SpydroidActivity extends FragmentActivity {
 
 	public void onStart() {
 		super.onStart();
+		if (mWakeLock == null) return; // Waiting for the user's permission decision.
 
 		// Lock screen
 		mWakeLock.acquire();
@@ -134,7 +154,9 @@ public class SpydroidActivity extends FragmentActivity {
 		// Did the user disabled the notification ?
 		if (mApplication.notificationEnabled) {
 			Intent notificationIntent = new Intent(this, SpydroidActivity.class);
-			PendingIntent pendingIntent = PendingIntent.getActivity(this, 0, notificationIntent, PendingIntent.FLAG_CANCEL_CURRENT);
+			int pendingIntentFlags = PendingIntent.FLAG_CANCEL_CURRENT;
+			if (Build.VERSION.SDK_INT >= 23) pendingIntentFlags |= PendingIntent.FLAG_IMMUTABLE;
+			PendingIntent pendingIntent = PendingIntent.getActivity(this, 0, notificationIntent, pendingIntentFlags);
 
 			NotificationCompat.Builder builder = new NotificationCompat.Builder(this);
 			Notification notification = builder.setContentIntent(pendingIntent)
@@ -143,6 +165,15 @@ public class SpydroidActivity extends FragmentActivity {
 					.setSmallIcon(R.drawable.icon)
 					.setContentTitle(getText(R.string.notification_title))
 					.setContentText(getText(R.string.notification_content)).build();
+			if (Build.VERSION.SDK_INT >= 26) {
+				NotificationManager manager = (NotificationManager) getSystemService(NOTIFICATION_SERVICE);
+				manager.createNotificationChannel(new NotificationChannel(NOTIFICATION_CHANNEL,
+						getString(R.string.notification_title), NotificationManager.IMPORTANCE_LOW));
+				notification = new Notification.Builder(this, NOTIFICATION_CHANNEL)
+						.setContentIntent(pendingIntent).setSmallIcon(R.drawable.icon)
+						.setContentTitle(getText(R.string.notification_title))
+						.setContentText(getText(R.string.notification_content)).setOngoing(true).build();
+			}
 			notification.flags |= Notification.FLAG_ONGOING_EVENT;
 			((NotificationManager)getSystemService(Context.NOTIFICATION_SERVICE)).notify(0,notification);
 		} else {
@@ -151,30 +182,49 @@ public class SpydroidActivity extends FragmentActivity {
 
 		bindService(new Intent(this,CustomHttpServer.class), mHttpServiceConnection, Context.BIND_AUTO_CREATE);
 		bindService(new Intent(this,CustomRtspServer.class), mRtspServiceConnection, Context.BIND_AUTO_CREATE);
+		mServicesBound = true;
 
 	}
 
 	@Override
 	public void onStop() {
 		super.onStop();
+		if (mWakeLock == null) return;
 		// A WakeLock should only be released when isHeld() is true !
 		if (mWakeLock.isHeld()) mWakeLock.release();
 		if (mHttpServer != null) mHttpServer.removeCallbackListener(mHttpCallbackListener);
-		unbindService(mHttpServiceConnection);
+		if (mServicesBound) unbindService(mHttpServiceConnection);
 		if (mRtspServer != null) mRtspServer.removeCallbackListener(mRtspCallbackListener);
-		unbindService(mRtspServiceConnection);
+		if (mServicesBound) unbindService(mRtspServiceConnection);
+		mServicesBound = false;
 	}
 
 	@Override
 	public void onResume() {
 		super.onResume();
+		if (mApplication == null) return;
 		mApplication.applicationForeground = true;
 	}
 
 	@Override
 	public void onPause() {
 		super.onPause();
+		if (mApplication == null) return;
 		mApplication.applicationForeground = false;
+	}
+
+	@Override
+	public void onRequestPermissionsResult(int requestCode, String[] permissions, int[] grantResults) {
+		super.onRequestPermissionsResult(requestCode, permissions, grantResults);
+		if (requestCode != MEDIA_PERMISSIONS) return;
+		boolean granted = grantResults.length > 0;
+		for (int result : grantResults) granted &= result == PackageManager.PERMISSION_GRANTED;
+		if (granted) {
+			recreate();
+		} else {
+			Toast.makeText(this, R.string.media_permissions_required, Toast.LENGTH_LONG).show();
+			finish();
+		}
 	}
 
 	@Override
@@ -193,6 +243,7 @@ public class SpydroidActivity extends FragmentActivity {
 
 	@Override    
 	public boolean onCreateOptionsMenu(Menu menu) {
+		if (mApplication == null) return false;
 		MenuInflater inflater = getMenuInflater();
 		inflater.inflate(R.menu.menu, menu);
 		MenuItemCompat.setShowAsAction(menu.findItem(R.id.quit), 1);

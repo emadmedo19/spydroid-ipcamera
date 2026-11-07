@@ -54,4 +54,5 @@
     <string name="page0">Main</string>
     <string name="page1">Preview</string>
     <string name="page2">About</string>    
+    <string name="media_permissions_required">Для трансляции нужен доступ к камере и микрофону. Разрешите доступ в настройках приложения и снова откройте Spydroid.</string>
 </resources>

@@ -1,5 +1,8 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <lint>
+    <!-- This APK is for sideloading; Play Store targeting needs a separate
+         migration of the legacy streaming and background service APIs. -->
+    <issue id="ExpiredTargetSdkVersion" severity="warning" />
     <issue id="InlinedApi">
         <ignore path="src/net/majorkernelpanic/streaming/video/ColorFormatConvertor.java" />
     </issue>

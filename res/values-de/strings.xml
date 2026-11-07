@@ -54,4 +54,5 @@
     <string name="page0">Main</string>
     <string name="page1">Preview</string>
     <string name="page2">About</string>
+    <string name="media_permissions_required">Kamera- und Mikrofonberechtigungen sind zum Streamen erforderlich. Erlauben Sie diese in den App-Einstellungen und öffnen Sie Spydroid erneut.</string>
 </resources>

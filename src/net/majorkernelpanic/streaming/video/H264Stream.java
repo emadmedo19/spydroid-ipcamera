@@ -36,7 +36,6 @@ import android.content.SharedPreferences.Editor;
 import android.graphics.ImageFormat;
 import android.hardware.Camera.CameraInfo;
 import android.media.MediaRecorder;
-import android.os.Environment;
 import android.service.textservice.SpellCheckerService.Session;
 import android.util.Base64;
 import android.util.Log;
@@ -150,11 +149,8 @@ public class H264Stream extends VideoStream {
 			}
 		}
 		
-		if (!Environment.getExternalStorageState().equals(Environment.MEDIA_MOUNTED)) {
-			throw new StorageUnavailableException("No external storage or external storage not ready !");
-		}
 
-		final String TESTFILE = Environment.getExternalStorageDirectory().getPath()+"/spydroid-test.mp4";
+		final String TESTFILE = new File(SessionBuilder.getInstance().getContext().getCacheDir(), "spydroid-test.mp4").getAbsolutePath();
 		
 		Log.i(TAG,"Testing H264 support... Test file saved at: "+TESTFILE);
 
