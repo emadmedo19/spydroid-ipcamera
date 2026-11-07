@@ -13,6 +13,12 @@ The installable, debug-signed APK is written to
 No release signing key is included. A debug build cannot update an existing
 installation signed with the original developer's key.
 
+GitHub Actions runs the same build on pushes to `master`, `build/**` branches
+and version tags. Open the completed **Build Android APK** run and download
+the `spydroid-debug-*` artifact. It contains the APK in a ZIP file. GitHub
+requires signing in to download Actions artifacts. Each fresh CI runner uses
+its own debug signing key, so use the Release APK consistently for updates.
+
 ## Compatibility changes
 
 - Gradle 8.9 / Android Gradle Plugin 8.7.3 replace the obsolete Ant build.
